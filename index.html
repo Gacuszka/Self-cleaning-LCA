@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Self-cleaning trade-off</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #f4f6fa;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #66748a;
+      --line: #d9e0ea;
+      --shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .page {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 28px 18px 40px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.9rem;
+    }
+
+    .intro {
+      margin: 0 0 22px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 520px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .controls {
+      padding: 18px;
+    }
+
+    .controls-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      gap: 12px;
+    }
+
+    .controls-head h2,
+    .chart-head h2 {
+      margin: 0;
+      font-size: 1.18rem;
+    }
+
+    .reset-btn {
+      border: 1px solid #c9d3e2;
+      background: #f7f9fc;
+      color: #22304a;
+      border-radius: 10px;
+      padding: 9px 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .reset-btn:hover {
+      background: #eef3f8;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      border: 1px solid var(--line);
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: middle;
+      font-size: 0.95rem;
+    }
+
+    th {
+      background: #f1f4f8;
+      font-weight: 700;
+    }
+
+    td:first-child, th:first-child {
+      width: 56%;
+    }
+
+    td:nth-child(2), th:nth-child(2),
+    td:nth-child(3), th:nth-child(3) {
+      width: 22%;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      border: 1px solid #c8d3e2;
+      border-radius: 8px;
+      padding: 8px 9px;
+      font-size: 0.94rem;
+      background: white;
+    }
+
+    input[readonly] {
+      background: #f3f5f8;
+      color: #49576f;
+    }
+
+    .note {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .chart-card {
+      padding: 18px;
+    }
+
+    .chart-head {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .chart-sub {
+      color: var(--muted);
+      font-size: 0.93rem;
+      margin-top: 6px;
+      line-height: 1.45;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .summary-box {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #f8fafc;
+      padding: 12px 14px;
+    }
+
+    .summary-box span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.84rem;
+      margin-bottom: 6px;
+    }
+
+    .summary-box strong {
+      font-size: 1.08rem;
+    }
+
+    .chart-wrap {
+      position: relative;
+      min-height: 520px;
+    }
+
+    .result-table {
+      margin-top: 16px;
+      max-height: 260px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+
+    .result-table table {
+      border: none;
+    }
+
+    .result-table th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    @media (max-width: 1100px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>Self-cleaning trade-off</h1>
+    <p class="intro">
+      Edit the values in the table and the chart will update automatically. The x-axis extends when you increase life time.
+    </p>
+
+    <div class="layout">
+      <section class="card controls">
+        <div class="controls-head">
+          <h2>Variables</h2>
+          <button id="resetButton" class="reset-btn">Reset defaults</button>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Variables</th>
+              <th>Our coating</th>
+              <th>Reference</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Life time [years]</td>
+              <td><input id="lifeOur" type="number" min="1" step="1" value="10"></td>
+              <td><input id="lifeRef" type="number" min="1" step="1" value="10"></td>
+            </tr>
+            <tr>
+              <td>Production of coating CO2 equivalent [kg/m2]</td>
+              <td><input id="prodOur" type="number" min="0" step="0.01" value="0.73"></td>
+              <td><input id="prodRef" type="number" min="0" step="0.01" value="0.59"></td>
+            </tr>
+            <tr>
+              <td>Cleaning per year [1/year]</td>
+              <td><input id="cleanOur" type="number" min="0" step="1" value="0"></td>
+              <td><input id="cleanRef" type="number" min="0" step="1" value="2"></td>
+            </tr>
+            <tr>
+              <td>Cleaning CO2 equivalent [kg/m2]</td>
+              <td><input id="impactOur" type="number" min="0" step="0.001" value="0.035"></td>
+              <td><input id="impactRef" type="number" min="0" step="0.001" value="0.035"></td>
+            </tr>
+            <tr>
+              <td>Cleaning impact per year [kg/m2/year]</td>
+              <td><input id="yearImpactOur" type="number" step="0.001" value="0.000" readonly></td>
+              <td><input id="yearImpactRef" type="number" step="0.001" value="0.070" readonly></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="note">
+          The yearly cleaning impact is calculated automatically as cleaning frequency × cleaning impact per cleaning.
+        </div>
+      </section>
+
+      <section class="card chart-card">
+        <div class="chart-head">
+          <div>
+            <h2>Dynamic comparison</h2>
+            <div class="chart-sub">Cumulative impact = production impact + time × yearly cleaning impact.</div>
+          </div>
+        </div>
+
+        <div class="summary">
+          <div class="summary-box">
+            <span>Payback time</span>
+            <strong id="paybackValue">No crossover</strong>
+          </div>
+          <div class="summary-box">
+            <span>Difference at final year</span>
+            <strong id="finalDifference">0.000 kg/m2</strong>
+          </div>
+        </div>
+
+        <div class="chart-wrap">
+          <canvas id="chart"></canvas>
+        </div>
+
+        <div class="result-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Year</th>
+                <th>Our coating</th>
+                <th>Reference</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const defaults = {
+      lifeOur: 10,
+      lifeRef: 10,
+      prodOur: 0.73,
+      prodRef: 0.59,
+      cleanOur: 0,
+      cleanRef: 2,
+      impactOur: 0.035,
+      impactRef: 0.035
+    };
+
+    const editableIds = [
+      'lifeOur', 'lifeRef', 'prodOur', 'prodRef', 'cleanOur', 'cleanRef', 'impactOur', 'impactRef'
+    ];
+
+    function getNum(id) {
+      const v = parseFloat(document.getElementById(id).value);
+      return Number.isFinite(v) ? v : 0;
+    }
+
+    function calculateSeries(production, cleaningsPerYear, impactPerCleaning, lifeTime) {
+      const yearlyImpact = cleaningsPerYear * impactPerCleaning;
+      const years = [];
+      const values = [];
+      for (let year = 0; year <= lifeTime; year += 1) {
+        years.push(year);
+        values.push(Number((production + year * yearlyImpact).toFixed(4)));
+      }
+      return { years, values, yearlyImpact };
+    }
+
+    function findPayback(prodA, slopeA, prodB, slopeB, maxYears) {
+      const denom = slopeB - slopeA;
+      if (Math.abs(denom) < 1e-12) return null;
+      const x = (prodA - prodB) / denom;
+      if (x >= 0 && x <= maxYears) return x;
+      return null;
+    }
+
+    const paybackPlugin = {
+      id: 'paybackPlugin',
+      afterDatasetsDraw(chart, args, pluginOptions) {
+        const xValue = pluginOptions.xValue;
+        const yValue = pluginOptions.yValue;
+        const label = pluginOptions.label;
+        if (xValue == null || yValue == null || !label) return;
+
+        const { ctx, scales: { x, y } } = chart;
+        const xPos = x.getPixelForValue(xValue);
+        const yPos = y.getPixelForValue(yValue);
+
+        ctx.save();
+        ctx.strokeStyle = '#6b7280';
+        ctx.fillStyle = '#374151';
+        ctx.lineWidth = 1.2;
+
+        ctx.beginPath();
+        ctx.moveTo(xPos + 18, yPos + 48);
+        ctx.lineTo(xPos + 2, yPos + 6);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(xPos + 2, yPos + 6);
+        ctx.lineTo(xPos - 3, yPos + 13);
+        ctx.lineTo(xPos + 5, yPos + 11);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.font = '14px Arial';
+        ctx.fillStyle = '#374151';
+        label.split('\n').forEach((line, i) => {
+          ctx.fillText(line, xPos + 20, yPos + 62 + i * 18);
+        });
+
+        ctx.restore();
+      }
+    };
+
+    const chart = new Chart(document.getElementById('chart'), {
+      type: 'line',
+      data: {
+        datasets: [
+          {
+            label: 'Self-Cleaning',
+            data: [],
+            borderColor: '#9ca3af',
+            backgroundColor: '#9ca3af',
+            pointBackgroundColor: '#d1d5db',
+            pointBorderColor: '#d1d5db',
+            pointStyle: 'rect',
+            pointRadius: 5,
+            pointHoverRadius: 6,
+            borderWidth: 1.2,
+            tension: 0,
+            spanGaps: false
+          },
+          {
+            label: 'Regular Washing',
+            data: [],
+            borderColor: '#ef4444',
+            backgroundColor: '#ef4444',
+            pointBackgroundColor: '#ef4444',
+            pointBorderColor: '#ef4444',
+            pointRadius: 5,
+            pointHoverRadius: 6,
+            borderWidth: 1.2,
+            tension: 0,
+            spanGaps: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: {
+          padding: { top: 10, right: 20, bottom: 10, left: 10 }
+        },
+        plugins: {
+          legend: {
+            position: 'bottom',
+            align: 'end',
+            labels: {
+              boxWidth: 36,
+              color: '#253247',
+              font: { size: 14 }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => `${context.dataset.label}: ${context.parsed.y.toFixed(3)} kg/m2`
+            }
+          },
+          paybackPlugin: {
+            xValue: null,
+            yValue: null,
+            label: ''
+          }
+        },
+        scales: {
+          x: {
+            type: 'linear',
+            min: 0,
+            max: 10,
+            title: {
+              display: true,
+              text: 'Time (Years)',
+              color: '#253247',
+              font: { size: 16 }
+            },
+            ticks: {
+              stepSize: 1,
+              color: '#253247',
+              font: { size: 12 }
+            },
+            grid: {
+              color: '#d7dce3'
+            },
+            border: {
+              color: '#aab3c0'
+            }
+          },
+          y: {
+            min: 0,
+            max: 1.4,
+            title: {
+              display: true,
+              text: 'CO2 equivalent (kg/m2)',
+              color: '#253247',
+              font: { size: 16 }
+            },
+            ticks: {
+              color: '#253247',
+              font: { size: 12 }
+            },
+            grid: {
+              color: '#d7dce3'
+            },
+            border: {
+              color: '#aab3c0'
+            }
+          }
+        }
+      },
+      plugins: [paybackPlugin]
+    });
+
+    function updateTable(maxYears, ourSeries, refSeries, lifeOur, lifeRef) {
+      const body = document.getElementById('resultsBody');
+      body.innerHTML = '';
+
+      for (let year = 0; year <= maxYears; year += 1) {
+        const ourValue = year <= lifeOur ? ourSeries.values[year] : '';
+        const refValue = year <= lifeRef ? refSeries.values[year] : '';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${year}</td>
+          <td>${ourValue === '' ? '' : ourValue.toFixed(3)}</td>
+          <td>${refValue === '' ? '' : refValue.toFixed(3)}</td>
+        `;
+        body.appendChild(tr);
+      }
+    }
+
+    function updateModel() {
+      const lifeOur = Math.max(1, Math.round(getNum('lifeOur')));
+      const lifeRef = Math.max(1, Math.round(getNum('lifeRef')));
+      document.getElementById('lifeOur').value = lifeOur;
+      document.getElementById('lifeRef').value = lifeRef;
+
+      const prodOur = getNum('prodOur');
+      const prodRef = getNum('prodRef');
+      const cleanOur = getNum('cleanOur');
+      const cleanRef = getNum('cleanRef');
+      const impactOur = getNum('impactOur');
+      const impactRef = getNum('impactRef');
+
+      const ourSeries = calculateSeries(prodOur, cleanOur, impactOur, lifeOur);
+      const refSeries = calculateSeries(prodRef, cleanRef, impactRef, lifeRef);
+
+      document.getElementById('yearImpactOur').value = ourSeries.yearlyImpact.toFixed(3);
+      document.getElementById('yearImpactRef').value = refSeries.yearlyImpact.toFixed(3);
+
+      const maxYears = Math.max(lifeOur, lifeRef);
+
+      chart.data.datasets[0].data = ourSeries.years.map((year, i) => ({ x: year, y: ourSeries.values[i] }));
+      chart.data.datasets[1].data = refSeries.years.map((year, i) => ({ x: year, y: refSeries.values[i] }));
+
+      chart.options.scales.x.max = maxYears;
+
+      const allY = [...ourSeries.values, ...refSeries.values];
+      const minY = Math.min(...allY);
+      const maxY = Math.max(...allY);
+      const pad = Math.max(0.05, (maxY - minY) * 0.12);
+
+      chart.options.scales.y.min = Math.max(0, Number((minY - pad).toFixed(2)));
+      chart.options.scales.y.max = Number((maxY + pad).toFixed(2));
+
+      const payback = findPayback(prodOur, ourSeries.yearlyImpact, prodRef, refSeries.yearlyImpact, maxYears);
+      const paybackElement = document.getElementById('paybackValue');
+
+      if (payback !== null) {
+        const yPayback = prodOur + payback * ourSeries.yearlyImpact;
+        chart.options.plugins.paybackPlugin.xValue = payback;
+        chart.options.plugins.paybackPlugin.yValue = yPayback;
+        chart.options.plugins.paybackPlugin.label = `${payback.toFixed(2)} Years\nPayback Time`;
+        paybackElement.textContent = `${payback.toFixed(2)} years`;
+      } else {
+        chart.options.plugins.paybackPlugin.xValue = null;
+        chart.options.plugins.paybackPlugin.yValue = null;
+        chart.options.plugins.paybackPlugin.label = '';
+        paybackElement.textContent = 'No crossover';
+      }
+
+      const lastComparableYear = Math.min(lifeOur, lifeRef);
+      const diff = ourSeries.values[lastComparableYear] - refSeries.values[lastComparableYear];
+      document.getElementById('finalDifference').textContent = `${diff >= 0 ? '+' : ''}${diff.toFixed(3)} kg/m2`;
+
+      updateTable(maxYears, ourSeries, refSeries, lifeOur, lifeRef);
+
+      chart.update();
+    }
+
+    editableIds.forEach((id) => {
+      document.getElementById(id).addEventListener('input', updateModel);
+    });
+
+    document.getElementById('resetButton').addEventListener('click', () => {
+      for (const [id, value] of Object.entries(defaults)) {
+        document.getElementById(id).value = value;
+      }
+      updateModel();
+    });
+
+    updateModel();
+  </script>
+</body>
+</html>
